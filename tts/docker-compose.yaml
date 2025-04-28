@@ -1,0 +1,7 @@
+version: "3.8"
+
+services:
+  coqui-tts-api:
+    build: .
+    ports:
+      - "5000:5000"
