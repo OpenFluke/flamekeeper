@@ -7,32 +7,49 @@ class CreateGPT extends Component {
     this.state = {
       name: '',
       description: '',
+      message: '',
+      canCreate: null,
     };
   }
 
   handleInputChange = (e) => {
     const { name, value } = e.target;
-    this.setState({ [name]: value });
+    this.setState({ [name]: value, message: '', canCreate: null });
   };
 
-  handleSubmit = (e) => {
+  handleSubmit = async (e) => {
     e.preventDefault();
     const { name, description } = this.state;
     if (!name || !description) {
-      alert('Please fill in both the name and description.');
+      this.setState({ message: 'Please fill in both the name and description.', canCreate: false });
       return;
     }
 
-    // Generate a projectid from the name (replace spaces with hyphens, lowercase)
-    const projectid = name.toLowerCase().replace(/\s+/g, '-');
-    
-    // For now, we'll just redirect to the project page
-    // Later, you'll send this to the backend
-    this.props.navigate(`/projects/${projectid}`);
+    try {
+      const response = await fetch('http://localhost:4000/api/gpt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        this.setState({ message: data.message, canCreate: data.canCreate });
+        return;
+      }
+
+      this.setState({ message: data.message, canCreate: data.canCreate });
+      // Redirect to the project page after a short delay to show the success message
+      setTimeout(() => {
+        this.props.navigate(`/projects/${data.projectid}`);
+      }, 1000);
+    } catch (error) {
+      this.setState({ message: 'Failed to connect to the backend: ' + error.message, canCreate: false });
+    }
   };
 
   render() {
-    const { name, description } = this.state;
+    const { name, description, message, canCreate } = this.state;
 
     return (
       <section className="section">
@@ -73,6 +90,12 @@ class CreateGPT extends Component {
                 </button>
               </div>
             </div>
+
+            {message && (
+              <div className={`notification ${canCreate ? 'is-success' : 'is-danger'}`}>
+                {message}
+              </div>
+            )}
           </form>
         </div>
       </section>

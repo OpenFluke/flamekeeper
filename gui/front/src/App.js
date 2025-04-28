@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Link } from 'react-router-dom';
 import Menu from './menu';
 import Footer from './footer';
 import Home from './home';
@@ -8,6 +8,72 @@ import NotFound from './notfound';
 import CreateGPT from './createGPT';
 
 class App extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      projects: [], // List of projects fetched from the backend
+      fetchError: '', // Store any fetch errors
+    };
+  }
+
+  // Fetch projects when the component mounts
+  componentDidMount() {
+    this.fetchProjects();
+  }
+
+  // Fetch projects from the backend
+  fetchProjects = async () => {
+    try {
+      const response = await fetch('http://localhost:4000/api/projects');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (data.success) {
+        this.setState({ projects: data.projects, fetchError: '' });
+      } else {
+        this.setState({ fetchError: data.message || 'Failed to fetch projects' });
+      }
+    } catch (error) {
+      this.setState({ fetchError: error.message });
+      console.error('Error fetching projects:', error);
+    }
+  };
+
+  // Render projects in a grid
+  renderProjects = () => {
+    const { projects, fetchError } = this.state;
+    return (
+      <div className="section">
+        <div className="container">
+          <h1 className="title">Projects - Flamekeeper</h1>
+          {fetchError && (
+            <div className="notification is-danger">
+              {fetchError}
+            </div>
+          )}
+          {projects.length === 0 && !fetchError ? (
+            <p>No projects found. Create a new GPT to start a project.</p>
+          ) : (
+            <div className="columns is-multiline">
+              {projects.map((project, index) => (
+                <div key={index} className="column is-4">
+                  <div className="box">
+                    <h3 className="subtitle">{project.name}</h3>
+                    <p>{project.description}</p>
+                    <Link to={`/projects/${project.projectid}`} className="button is-primary mt-2">
+                      View Project
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   render() {
     return (
       <div className="app-container">
@@ -15,7 +81,7 @@ class App extends Component {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/projects" element={<div className="section"><div className="container"><h1 className="title">Projects - Flamekeeper</h1><p>Project list coming soon...</p></div></div>} />
+            <Route path="/projects" element={this.renderProjects()} />
             <Route path="/projects/:id" element={<Project />} />
             <Route path="/create-gpt" element={<CreateGPT />} />
             <Route path="*" element={<NotFound />} />
