@@ -11,7 +11,7 @@ class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      projects: [], // List of projects fetched from the backend
+      projects: [], // Initialize as an empty array to avoid null
       fetchError: '', // Store any fetch errors
     };
   }
@@ -30,12 +30,13 @@ class App extends Component {
       }
       const data = await response.json();
       if (data.success) {
-        this.setState({ projects: data.projects, fetchError: '' });
+        // Ensure projects is always an array, even if the API returns an empty result
+        this.setState({ projects: data.projects || [], fetchError: '' });
       } else {
-        this.setState({ fetchError: data.message || 'Failed to fetch projects' });
+        this.setState({ fetchError: data.message || 'Failed to fetch projects', projects: [] });
       }
     } catch (error) {
-      this.setState({ fetchError: error.message });
+      this.setState({ fetchError: error.message, projects: [] });
       console.error('Error fetching projects:', error);
     }
   };
@@ -52,7 +53,7 @@ class App extends Component {
               {fetchError}
             </div>
           )}
-          {projects.length === 0 && !fetchError ? (
+          {(!projects || projects.length === 0) && !fetchError ? (
             <p>No projects found. Create a new GPT to start a project.</p>
           ) : (
             <div className="columns is-multiline">

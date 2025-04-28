@@ -106,3 +106,84 @@ func GetProjects(c *fiber.Ctx) error {
 		"projects": projects,
 	})
 }
+
+// Updated endpoint to update a project using projectid
+func UpdateGPT(c *fiber.Ctx) error {
+	projectID := c.Params("id")
+
+	// Parse the incoming request
+	updateData := new(GPT)
+	if err := c.BodyParser(updateData); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request payload",
+			"error":   err.Error(),
+		})
+	}
+
+	// Create update fields
+	update := bson.M{
+		"$set": bson.M{
+			"description":  updateData.Description,
+			"model":        updateData.Model,
+			"instructions": updateData.Instructions,
+		},
+	}
+
+	// Update the project in MongoDB
+	collection := MI.DB.Collection("gpts")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := collection.UpdateOne(ctx, bson.M{"projectid": projectID}, update)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to update project",
+			"error":   err.Error(),
+		})
+	}
+
+	if result.MatchedCount == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Project not found",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "Project updated successfully",
+	})
+}
+
+// Updated endpoint to delete a project using projectid
+func DeleteGPT(c *fiber.Ctx) error {
+	projectID := c.Params("id")
+
+	// Delete the project from MongoDB
+	collection := MI.DB.Collection("gpts")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := collection.DeleteOne(ctx, bson.M{"projectid": projectID})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to delete project",
+			"error":   err.Error(),
+		})
+	}
+
+	if result.DeletedCount == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"message": "Project not found",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "Project deleted successfully",
+	})
+}

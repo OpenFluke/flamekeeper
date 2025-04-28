@@ -33,7 +33,9 @@ func main() {
 
 	// Setup routes
 	app.Post("/api/gpt", CreateGPT)
-	app.Get("/api/projects", GetProjects) // Ensure this route is defined
+	app.Get("/api/projects", GetProjects)
+	app.Put("/api/gpt/:id", UpdateGPT)    // New route for updating a project
+	app.Delete("/api/gpt/:id", DeleteGPT) // New route for deleting a project
 
 	// Start server
 	port := os.Getenv("PORT")
