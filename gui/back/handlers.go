@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"strings"
 	"time"
 
@@ -185,5 +186,132 @@ func DeleteGPT(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"message": "Project deleted successfully",
+	})
+}
+
+func EmbedChunk(c *fiber.Ctx) error {
+	projectID := c.Params("projectid")
+
+	var chunk EmbeddedChunk
+	if err := c.BodyParser(&chunk); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid payload",
+			"error":   err.Error(),
+		})
+	}
+
+	if chunk.ID == "" || chunk.Text == "" || len(chunk.Embedding) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "ID, text, and embedding are required",
+		})
+	}
+
+	collectionName := "gpt_embed_" + projectID
+	collection := MI.DB.Collection(collectionName)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Ensure uniqueness by ID
+	_, err := collection.InsertOne(ctx, chunk)
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"success": false,
+				"message": "Chunk ID already exists",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to insert chunk",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"message": "Chunk embedded successfully",
+	})
+}
+
+func ReplaceEmbeddings(c *fiber.Ctx) error {
+	projectID := c.Params("projectid")
+
+	var body struct {
+		Chunks []EmbeddedChunk `json:"chunks"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid payload",
+			"error":   err.Error(),
+		})
+	}
+
+	collectionName := "gpt_embed_" + projectID
+	collection := MI.DB.Collection(collectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 1. Delete all existing chunks
+	_, err := collection.DeleteMany(ctx, bson.M{})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to clear existing embeddings",
+			"error":   err.Error(),
+		})
+	}
+
+	// 2. Insert new chunks
+	docs := make([]interface{}, len(body.Chunks))
+	for i, chunk := range body.Chunks {
+		docs[i] = chunk
+	}
+
+	if len(docs) > 0 {
+		_, err = collection.InsertMany(ctx, docs)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"success": false,
+				"message": "Failed to insert new embeddings",
+				"error":   err.Error(),
+			})
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success":  true,
+		"message":  "Embeddings replaced successfully",
+		"replaced": len(docs),
+	})
+}
+
+func DeleteAllEmbeddings(c *fiber.Ctx) error {
+	projectID := c.Params("projectid")
+	collectionName := "gpt_embed_" + projectID
+
+	log.Println("DROP called for collection:", collectionName)
+
+	collection := MI.DB.Collection(collectionName)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := collection.Drop(ctx); err != nil {
+		log.Println("Error dropping collection:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to drop collection",
+			"error":   err.Error(),
+		})
+	}
+
+	log.Println("Successfully dropped collection:", collectionName)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Collection dropped",
 	})
 }

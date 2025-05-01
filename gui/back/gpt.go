@@ -10,3 +10,9 @@ type GPT struct {
 	Model        string             `json:"model" bson:"model"`               // New field for Ollama model
 	Instructions string             `json:"instructions" bson:"instructions"` // New field for instructions
 }
+
+type EmbeddedChunk struct {
+	ID        string    `json:"id" bson:"id"`
+	Text      string    `json:"text" bson:"text"`
+	Embedding []float64 `json:"embedding" bson:"embedding"`
+}

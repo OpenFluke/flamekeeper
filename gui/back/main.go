@@ -37,6 +37,10 @@ func main() {
 	app.Put("/api/gpt/:id", UpdateGPT)    // New route for updating a project
 	app.Delete("/api/gpt/:id", DeleteGPT) // New route for deleting a project
 
+	app.Post("/api/gpt/:projectid/embed", EmbedChunk)
+	app.Post("/api/gpt/:projectid/embed/replace", ReplaceEmbeddings)
+	app.Delete("/api/gpt/:projectid/embed", DeleteAllEmbeddings)
+
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
