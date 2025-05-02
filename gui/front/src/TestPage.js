@@ -10,6 +10,7 @@ class TestPage extends Component {
       result: "",
       modelAnswer: "",
       contextBlock: "",
+      prompt: "", // <- NEW
       audioUrl: null,
       isPlaying: false,
     };
@@ -43,12 +44,14 @@ class TestPage extends Component {
         result: JSON.stringify(data, null, 2),
         modelAnswer: data.answer || "",
         contextBlock: data.context || "",
+        prompt: data.prompt || "", // <- NEW
       });
     } catch (err) {
       this.setState({
         result: `Error: ${err.message}`,
         modelAnswer: "",
         contextBlock: "",
+        prompt: "",
       });
     }
   };
@@ -63,7 +66,6 @@ class TestPage extends Component {
   };
 
   sanitizeText = (text) => {
-    // Removes non-alphanumeric characters except basic punctuation
     return text.replace(/[^a-zA-Z0-9 .,!?'"()\[\]-]/g, "");
   };
 
@@ -94,8 +96,15 @@ class TestPage extends Component {
   };
 
   render() {
-    const { project, query, result, modelAnswer, contextBlock, isPlaying } =
-      this.state;
+    const {
+      project,
+      query,
+      result,
+      modelAnswer,
+      contextBlock,
+      prompt,
+      isPlaying,
+    } = this.state;
 
     return (
       <section className="section">
@@ -165,6 +174,13 @@ class TestPage extends Component {
             <div className="box mt-4">
               <h2 className="subtitle">📚 RAG Context Sent to Model</h2>
               <pre style={{ whiteSpace: "pre-wrap" }}>{contextBlock}</pre>
+            </div>
+          )}
+
+          {prompt && (
+            <div className="box mt-4">
+              <h2 className="subtitle">🧠 Final Prompt Sent to Model</h2>
+              <pre style={{ whiteSpace: "pre-wrap" }}>{prompt}</pre>
             </div>
           )}
 

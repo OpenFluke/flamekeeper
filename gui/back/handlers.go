@@ -426,11 +426,22 @@ func TestRAGRetrieval(c *fiber.Ctx) error {
 
 func RunFullPipeline(c *fiber.Ctx) error {
 	projectID := c.Params("projectid")
+
+	// Parse the input
 	var input struct {
 		Query string `json:"query"`
 	}
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Invalid input"})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Fetch project info (needed for Instructions and Model)
+	var project GPT
+	if err := MI.DB.Collection("gpts").FindOne(ctx, bson.M{"projectid": projectID}).Decode(&project); err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Project not found"})
 	}
 
 	// Step 1: Embed query
@@ -439,11 +450,8 @@ func RunFullPipeline(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
 	}
 
-	// Step 2: Search Mongo for relevant chunks
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Step 2: Retrieve context via cosine similarity
 	collection := MI.DB.Collection("gpt_embed_" + projectID)
-
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
@@ -459,23 +467,24 @@ func RunFullPipeline(c *fiber.Ctx) error {
 		var doc Doc
 		if err := cursor.Decode(&doc); err == nil {
 			score := cosineSimilarity(queryVec, doc.Embedding)
-			log.Printf("Chunk score: %.3f — Text: %.30s\n", score, doc.Text) // <-- Add here
+			log.Printf("Chunk score: %.3f — Text: %.30s\n", score, doc.Text)
 			if score > 0.5 {
 				contextParts = append(contextParts, doc.Text)
 			}
-
 		}
 	}
+
 	contextBlock := strings.Join(contextParts, "\n\n---\n\n")
-	fullPrompt := fmt.Sprintf("Answer this using the following context:\n\n%s\n\nQuestion: %s", contextBlock, input.Query)
 
-	// Step 3: Fetch model info
-	var project GPT
-	if err := MI.DB.Collection("gpts").FindOne(ctx, bson.M{"projectid": projectID}).Decode(&project); err != nil {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Project not found"})
-	}
+	// Step 3: Format final prompt
+	fullPrompt := fmt.Sprintf(
+		"Instructions:\n%s\n\n---\n\nAnswer this using the following context:\n\n%s\n\nQuestion: %s",
+		project.Instructions,
+		contextBlock,
+		input.Query,
+	)
 
-	// Step 4: Call model
+	// Step 4: Send prompt to model
 	modelResp, err := queryModel(fullPrompt, project.Model)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
@@ -483,10 +492,10 @@ func RunFullPipeline(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"success": true,
+		"prompt":  fullPrompt,
 		"answer":  modelResp,
-		"context": contextBlock, // << NEW: so frontend can show what was sent
+		"context": contextBlock,
 	})
-
 }
 
 func embedText(text string) ([]float64, error) {
