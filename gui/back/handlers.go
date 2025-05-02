@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"math"
+	"net/http"
 	"strings"
 	"time"
 
@@ -314,4 +319,232 @@ func DeleteAllEmbeddings(c *fiber.Ctx) error {
 		"success": true,
 		"message": "Collection dropped",
 	})
+}
+
+func LoadTestPage(c *fiber.Ctx) error {
+	projectID := c.Params("projectid")
+	collection := MI.DB.Collection("gpts")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var project GPT
+	err := collection.FindOne(ctx, bson.M{"projectid": projectID}).Decode(&project)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"success": false,
+			"message": "Project not found",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"project": project,
+	})
+}
+
+func TestModelPing(c *fiber.Ctx) error {
+	projectID := c.Params("projectid")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var project GPT
+	err := MI.DB.Collection("gpts").FindOne(ctx, bson.M{"projectid": projectID}).Decode(&project)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Project not found"})
+	}
+
+	payload := map[string]interface{}{
+		"model":  project.Model,
+		"prompt": "ping",
+		"stream": false,
+	}
+	body, _ := json.Marshal(payload)
+
+	resp, err := http.Post("http://localhost:11434/api/generate", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Model not reachable",
+			"error":   err.Error(),
+		})
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Model is reachable and responding!",
+		"raw":     result,
+	})
+}
+
+func TestRAGRetrieval(c *fiber.Ctx) error {
+	projectID := c.Params("projectid")
+	collectionName := "gpt_embed_" + projectID
+
+	// Embed a static test question
+	query := "What is the purpose of this project?"
+	embedResp, err := embedText(query)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	// Search for similar documents in MongoDB
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	collection := MI.DB.Collection(collectionName)
+	cursor, err := collection.Find(ctx, bson.M{}) // Simplified, will add similarity next
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+	defer cursor.Close(ctx)
+
+	var topHits []string
+	for cursor.Next(ctx) {
+		var doc struct {
+			Text      string    `bson:"text"`
+			Embedding []float64 `bson:"embedding"`
+		}
+		if err := cursor.Decode(&doc); err != nil {
+			continue
+		}
+		score := cosineSimilarity(embedResp, doc.Embedding)
+		if score > 0.5 {
+			topHits = append(topHits, doc.Text)
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"context": strings.Join(topHits, "\n---\n"),
+	})
+}
+
+func RunFullPipeline(c *fiber.Ctx) error {
+	projectID := c.Params("projectid")
+	var input struct {
+		Query string `json:"query"`
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Invalid input"})
+	}
+
+	// Step 1: Embed query
+	queryVec, err := embedText(input.Query)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	// Step 2: Search Mongo for relevant chunks
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	collection := MI.DB.Collection("gpt_embed_" + projectID)
+
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+	defer cursor.Close(ctx)
+
+	type Doc struct {
+		Text      string    `bson:"text"`
+		Embedding []float64 `bson:"embedding"`
+	}
+	var contextParts []string
+	for cursor.Next(ctx) {
+		var doc Doc
+		if err := cursor.Decode(&doc); err == nil {
+			score := cosineSimilarity(queryVec, doc.Embedding)
+			log.Printf("Chunk score: %.3f — Text: %.30s\n", score, doc.Text) // <-- Add here
+			if score > 0.5 {
+				contextParts = append(contextParts, doc.Text)
+			}
+
+		}
+	}
+	contextBlock := strings.Join(contextParts, "\n\n---\n\n")
+	fullPrompt := fmt.Sprintf("Answer this using the following context:\n\n%s\n\nQuestion: %s", contextBlock, input.Query)
+
+	// Step 3: Fetch model info
+	var project GPT
+	if err := MI.DB.Collection("gpts").FindOne(ctx, bson.M{"projectid": projectID}).Decode(&project); err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Project not found"})
+	}
+
+	// Step 4: Call model
+	modelResp, err := queryModel(fullPrompt, project.Model)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"answer":  modelResp,
+		"context": contextBlock, // << NEW: so frontend can show what was sent
+	})
+
+}
+
+func embedText(text string) ([]float64, error) {
+	payload := map[string]string{"text": text}
+	body, _ := json.Marshal(payload)
+	resp, err := http.Post("http://localhost:8000/embed", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Embedding []float64 `json:"embedding"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	return data.Embedding, nil
+}
+
+func cosineSimilarity(a, b []float64) float64 {
+	if len(a) != len(b) {
+		return 0
+	}
+	var dot, normA, normB float64
+	for i := range a {
+		dot += a[i] * b[i]
+		normA += a[i] * a[i]
+		normB += b[i] * b[i]
+	}
+	if normA == 0 || normB == 0 {
+		return 0
+	}
+	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
+}
+
+func queryModel(prompt, model string) (string, error) {
+	if model == "" {
+		model = "llama2" // fallback
+	}
+	req := map[string]interface{}{
+		"model":  model,
+		"prompt": prompt,
+		"stream": false,
+	}
+	body, _ := json.Marshal(req)
+
+	resp, err := http.Post("http://localhost:11434/api/generate", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Response string `json:"response"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	return result.Response, nil
 }

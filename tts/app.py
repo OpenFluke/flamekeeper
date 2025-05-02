@@ -1,10 +1,14 @@
 from flask import Flask, request, send_file
+from flask_cors import CORS
 from TTS.api import TTS
 import soundfile as sf
 import os
 import uuid
 
 app = Flask(__name__)
+
+# Enable CORS for all origins, all methods, all headers
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Load model once when the container starts
 tts = TTS(model_name="tts_models/en/ljspeech/tacotron2-DDC", progress_bar=False, gpu=False)

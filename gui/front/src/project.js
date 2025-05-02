@@ -224,16 +224,29 @@ class Project extends Component {
       <section className="section">
         <div className="container">
           <h1 className="title">Project: {id} - Flamekeeper</h1>
-          <div className="buttons">
-            <Link to="/projects" className="button is-primary">
-              Back to Projects
-            </Link>
-            <button className="button is-info" onClick={this.openEditModal}>
-              Edit Project
-            </button>
-            <button className="button is-danger" onClick={this.deleteProject}>
-              Delete Project
-            </button>
+          <div className="buttons is-justify-content-space-between is-flex-wrap-wrap">
+            <div className="is-flex is-flex-grow-1">
+              <Link to="/projects" className="button is-primary mr-2">
+                Back to Projects
+              </Link>
+              <button
+                className="button is-info mr-2"
+                onClick={this.openEditModal}
+              >
+                Edit Project
+              </button>
+              <button className="button is-danger" onClick={this.deleteProject}>
+                Delete Project
+              </button>
+            </div>
+            <div>
+              <Link
+                to={`/test/${this.state.project?.projectid}`}
+                className="button is-warning"
+              >
+                Go to Test Page
+              </Link>
+            </div>
           </div>
 
           {errorMessage && (

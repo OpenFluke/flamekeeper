@@ -1,18 +1,19 @@
-import React, { Component } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
-import Menu from './menu';
-import Footer from './footer';
-import Home from './home';
-import Project from './project';
-import NotFound from './notfound';
-import CreateGPT from './createGPT';
+import React, { Component } from "react";
+import { Routes, Route, Link } from "react-router-dom";
+import Menu from "./menu";
+import Footer from "./footer";
+import Home from "./home";
+import Project from "./project";
+import NotFound from "./notfound";
+import CreateGPT from "./createGPT";
+import TestPage from "./TestPage";
 
 class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
       projects: [], // Initialize as an empty array to avoid null
-      fetchError: '', // Store any fetch errors
+      fetchError: "", // Store any fetch errors
     };
   }
 
@@ -24,20 +25,25 @@ class App extends Component {
   // Fetch projects from the backend
   fetchProjects = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/projects');
+      const response = await fetch("http://localhost:4000/api/projects");
       if (!response.ok) {
-        throw new Error(`Failed to fetch projects: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch projects: ${response.status} ${response.statusText}`
+        );
       }
       const data = await response.json();
       if (data.success) {
         // Ensure projects is always an array, even if the API returns an empty result
-        this.setState({ projects: data.projects || [], fetchError: '' });
+        this.setState({ projects: data.projects || [], fetchError: "" });
       } else {
-        this.setState({ fetchError: data.message || 'Failed to fetch projects', projects: [] });
+        this.setState({
+          fetchError: data.message || "Failed to fetch projects",
+          projects: [],
+        });
       }
     } catch (error) {
       this.setState({ fetchError: error.message, projects: [] });
-      console.error('Error fetching projects:', error);
+      console.error("Error fetching projects:", error);
     }
   };
 
@@ -49,9 +55,7 @@ class App extends Component {
         <div className="container">
           <h1 className="title">Projects - Flamekeeper</h1>
           {fetchError && (
-            <div className="notification is-danger">
-              {fetchError}
-            </div>
+            <div className="notification is-danger">{fetchError}</div>
           )}
           {(!projects || projects.length === 0) && !fetchError ? (
             <p>No projects found. Create a new GPT to start a project.</p>
@@ -62,7 +66,10 @@ class App extends Component {
                   <div className="box">
                     <h3 className="subtitle">{project.name}</h3>
                     <p>{project.description}</p>
-                    <Link to={`/projects/${project.projectid}`} className="button is-primary mt-2">
+                    <Link
+                      to={`/projects/${project.projectid}`}
+                      className="button is-primary mt-2"
+                    >
                       View Project
                     </Link>
                   </div>
@@ -85,6 +92,7 @@ class App extends Component {
             <Route path="/projects" element={this.renderProjects()} />
             <Route path="/projects/:id" element={<Project />} />
             <Route path="/create-gpt" element={<CreateGPT />} />
+            <Route path="/test/:id" element={<TestPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

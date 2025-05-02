@@ -41,6 +41,11 @@ func main() {
 	app.Post("/api/gpt/:projectid/embed/replace", ReplaceEmbeddings)
 	app.Delete("/api/gpt/:projectid/embed", DeleteAllEmbeddings)
 
+	app.Get("/test/:projectid", LoadTestPage)
+	app.Post("/test/:projectid/ping", TestModelPing)
+	app.Post("/test/:projectid/rag", TestRAGRetrieval)
+	app.Post("/test/:projectid/query", RunFullPipeline)
+
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
