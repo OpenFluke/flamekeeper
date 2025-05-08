@@ -21,6 +21,7 @@ class Project extends Component {
       triggerWords: "", // NEW
       errorMessage: "",
       projectNotFound: false,
+      timeoutSeconds: 3,
     };
   }
 
@@ -47,6 +48,7 @@ class Project extends Component {
             editModel: project.model || "cogito:3b",
             editInstructions: project.instructions || "",
             triggerWords: project.triggerwords || "", // NEW
+            timeoutSeconds: project.timeoutSeconds ?? 3,
             projectNotFound: false,
           });
         } else {
@@ -64,6 +66,14 @@ class Project extends Component {
     } catch (error) {
       this.setState({ errorMessage: error.message, projectNotFound: true });
     }
+  };
+
+  // In handleEditInputChange
+  handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    this.setState({
+      [name]: name === "timeoutSeconds" ? parseInt(value, 10) : value,
+    }); // ⬅️ Type check for number
   };
 
   handleTabChange = (tab) => {
@@ -97,8 +107,13 @@ class Project extends Component {
 
   updateProject = async () => {
     const { id } = this.props.params;
-    const { editDescription, editModel, editInstructions, triggerWords } =
-      this.state;
+    const {
+      editDescription,
+      editModel,
+      editInstructions,
+      triggerWords,
+      timeoutSeconds,
+    } = this.state;
 
     try {
       const response = await fetch(`http://localhost:4000/api/gpt/${id}`, {
@@ -109,6 +124,7 @@ class Project extends Component {
           model: editModel,
           instructions: editInstructions,
           triggerwords: triggerWords, // NEW
+          timeoutSeconds,
         }),
       });
 
@@ -121,6 +137,7 @@ class Project extends Component {
             model: editModel,
             instructions: editInstructions,
             triggerwords: triggerWords, // NEW
+            timeoutSeconds,
           },
           isEditModalOpen: false,
           errorMessage: "",
@@ -204,6 +221,7 @@ class Project extends Component {
       triggerWords,
       errorMessage,
       projectNotFound,
+      timeoutSeconds,
     } = this.state;
 
     if (projectNotFound) {
@@ -380,6 +398,21 @@ class Project extends Component {
                         value={triggerWords}
                         onChange={this.handleEditInputChange}
                         placeholder="e.g., bob,dog,launch"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <label className="label">Silence Timeout (seconds)</label>
+                    <div className="control">
+                      <input
+                        className="input"
+                        type="number"
+                        name="timeoutSeconds"
+                        value={timeoutSeconds}
+                        onChange={this.handleEditInputChange}
+                        placeholder="e.g., 3"
+                        min="1"
                       />
                     </div>
                   </div>

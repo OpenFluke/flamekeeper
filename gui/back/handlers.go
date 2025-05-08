@@ -27,6 +27,10 @@ func CreateGPT(c *fiber.Ctx) error {
 		})
 	}
 
+	if gpt.TimeoutSeconds == 0 {
+		gpt.TimeoutSeconds = 3
+	}
+
 	// Validate required fields
 	if gpt.Name == "" || gpt.Description == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -130,9 +134,10 @@ func UpdateGPT(c *fiber.Ctx) error {
 	// Create update fields
 	update := bson.M{
 		"$set": bson.M{
-			"description":  updateData.Description,
-			"model":        updateData.Model,
-			"instructions": updateData.Instructions,
+			"description":    updateData.Description,
+			"model":          updateData.Model,
+			"instructions":   updateData.Instructions,
+			"timeoutSeconds": updateData.TimeoutSeconds,
 		},
 	}
 
