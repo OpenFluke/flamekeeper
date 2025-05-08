@@ -1,0 +1,7 @@
+numpy<2.0.0
+fastapi==0.115.0
+uvicorn==0.30.6
+nemo_toolkit[asr]==2.0.0
+torch==2.3.0
+pydub==0.25.1
+python-multipart==0.0.9
