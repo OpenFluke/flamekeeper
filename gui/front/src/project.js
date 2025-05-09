@@ -32,7 +32,9 @@ class Project extends Component {
   fetchProject = async () => {
     const { id } = this.props.params;
     try {
-      const response = await fetch("http://localhost:4000/api/projects");
+      const response = await fetch(
+        this.props.serverBase + ":4000/api/projects"
+      );
       if (!response.ok) {
         throw new Error(
           `Failed to fetch projects: ${response.status} ${response.statusText}`
@@ -116,17 +118,20 @@ class Project extends Component {
     } = this.state;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/gpt/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: editDescription,
-          model: editModel,
-          instructions: editInstructions,
-          triggerwords: triggerWords, // NEW
-          timeoutSeconds,
-        }),
-      });
+      const response = await fetch(
+        this.props.serverBase + `:4000/api/gpt/${id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: editDescription,
+            model: editModel,
+            instructions: editInstructions,
+            triggerwords: triggerWords, // NEW
+            timeoutSeconds,
+          }),
+        }
+      );
 
       const data = await response.json();
       if (data.success) {
@@ -159,10 +164,13 @@ class Project extends Component {
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/gpt/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(
+        this.props.serverBase + `:4000/api/gpt/${id}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
       const data = await response.json();
       if (data.success) {
@@ -190,7 +198,7 @@ class Project extends Component {
 
     try {
       const response = await fetch(
-        `http://localhost:4000/api/gpt/${project.projectid}/embed`,
+        this.props.serverBase + `:4000/api/gpt/${project.projectid}/embed`,
         {
           method: "DELETE",
         }

@@ -19,7 +19,8 @@ class DeployPageInner extends Component {
 
   componentDidMount() {
     const { projectid } = this.props;
-    fetch(`http://localhost:4000/api/deploy/${projectid}`)
+
+    fetch(this.props.serverBase + `:4000/api/deploy/${projectid}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -82,7 +83,7 @@ class DeployPageInner extends Component {
     formData.append("file", blob, "input.ogg");
 
     try {
-      const res = await fetch("http://localhost:8020/transcribe", {
+      const res = await fetch(this.props.serverBase + ":8020/transcribe", {
         method: "POST",
         body: formData,
       });
@@ -229,7 +230,9 @@ class DeployPageInner extends Component {
   }
 }
 
-export default function DeployPageWrapper() {
+export default function DeployPageWrapper(props) {
   const { projectid } = useParams();
-  return <DeployPageInner projectid={projectid} />;
+  return (
+    <DeployPageInner projectid={projectid} serverBase={props.serverBase} />
+  );
 }

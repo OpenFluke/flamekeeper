@@ -12,21 +12,24 @@ import DeployPage from "./DeployPage";
 class App extends Component {
   constructor(props) {
     super(props);
+
+    // Extract protocol and hostname from current location (ignores port)
+    const { protocol, hostname } = window.location;
+    this.serverBase = `${protocol}//${hostname}`;
+
     this.state = {
-      projects: [], // Initialize as an empty array to avoid null
-      fetchError: "", // Store any fetch errors
+      projects: [],
+      fetchError: "",
     };
   }
 
-  // Fetch projects when the component mounts
   componentDidMount() {
     this.fetchProjects();
   }
 
-  // Fetch projects from the backend
   fetchProjects = async () => {
     try {
-      const response = await fetch("http://localhost:4000/api/projects");
+      const response = await fetch(`${this.serverBase}:4000/api/projects`);
       if (!response.ok) {
         throw new Error(
           `Failed to fetch projects: ${response.status} ${response.statusText}`
@@ -34,7 +37,6 @@ class App extends Component {
       }
       const data = await response.json();
       if (data.success) {
-        // Ensure projects is always an array, even if the API returns an empty result
         this.setState({ projects: data.projects || [], fetchError: "" });
       } else {
         this.setState({
@@ -48,9 +50,9 @@ class App extends Component {
     }
   };
 
-  // Render projects in a grid
   renderProjects = () => {
     const { projects, fetchError } = this.state;
+
     return (
       <div className="section">
         <div className="container">
@@ -92,17 +94,31 @@ class App extends Component {
   };
 
   render() {
+    const { serverBase } = this;
+
     return (
       <div className="app-container">
         <Menu />
         <main className="main-content">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Home serverBase={serverBase} />} />
             <Route path="/projects" element={this.renderProjects()} />
-            <Route path="/projects/:id" element={<Project />} />
-            <Route path="/create-gpt" element={<CreateGPT />} />
-            <Route path="/test/:id" element={<TestPage />} />
-            <Route path="/deploy/:projectid" element={<DeployPage />} />
+            <Route
+              path="/projects/:id"
+              element={<Project serverBase={serverBase} />}
+            />
+            <Route
+              path="/create-gpt"
+              element={<CreateGPT serverBase={serverBase} />}
+            />
+            <Route
+              path="/test/:id"
+              element={<TestPage serverBase={serverBase} />}
+            />
+            <Route
+              path="/deploy/:projectid"
+              element={<DeployPage serverBase={serverBase} />}
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

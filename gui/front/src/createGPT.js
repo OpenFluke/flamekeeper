@@ -1,34 +1,37 @@
-import React, { Component } from 'react';
-import { withRouter } from './withRouter';
+import React, { Component } from "react";
+import { withRouter } from "./withRouter";
 
 class CreateGPT extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      name: '',
-      description: '',
-      message: '',
+      name: "",
+      description: "",
+      message: "",
       canCreate: null,
     };
   }
 
   handleInputChange = (e) => {
     const { name, value } = e.target;
-    this.setState({ [name]: value, message: '', canCreate: null });
+    this.setState({ [name]: value, message: "", canCreate: null });
   };
 
   handleSubmit = async (e) => {
     e.preventDefault();
     const { name, description } = this.state;
     if (!name || !description) {
-      this.setState({ message: 'Please fill in both the name and description.', canCreate: false });
+      this.setState({
+        message: "Please fill in both the name and description.",
+        canCreate: false,
+      });
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:4000/api/gpt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(this.props.serverBase + ":4000/api/gpt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, description }),
       });
 
@@ -44,7 +47,10 @@ class CreateGPT extends Component {
         this.props.navigate(`/projects/${data.projectid}`);
       }, 1000);
     } catch (error) {
-      this.setState({ message: 'Failed to connect to the backend: ' + error.message, canCreate: false });
+      this.setState({
+        message: "Failed to connect to the backend: " + error.message,
+        canCreate: false,
+      });
     }
   };
 
@@ -92,7 +98,11 @@ class CreateGPT extends Component {
             </div>
 
             {message && (
-              <div className={`notification ${canCreate ? 'is-success' : 'is-danger'}`}>
+              <div
+                className={`notification ${
+                  canCreate ? "is-success" : "is-danger"
+                }`}
+              >
                 {message}
               </div>
             )}

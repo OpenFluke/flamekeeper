@@ -18,7 +18,7 @@ class TestPage extends Component {
 
   componentDidMount() {
     const { id } = this.props.params;
-    fetch(`http://localhost:4000/test/${id}`)
+    fetch(this.props.serverBase + `:4000/test/${id}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -33,11 +33,14 @@ class TestPage extends Component {
     const { query } = this.state;
 
     try {
-      const res = await fetch(`http://localhost:4000/test/${id}/${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: endpoint === "query" ? JSON.stringify({ query }) : null,
-      });
+      const res = await fetch(
+        this.props.serverBase + `:4000/test/${id}/${endpoint}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: endpoint === "query" ? JSON.stringify({ query }) : null,
+        }
+      );
 
       const data = await res.json();
       this.setState({
@@ -75,7 +78,7 @@ class TestPage extends Component {
 
     try {
       const cleaned = this.sanitizeText(this.stripThoughtTags(modelAnswer));
-      const res = await fetch("http://localhost:5000/tts", {
+      const res = await fetch(this.props.serverBase + ":5000/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: cleaned }),
