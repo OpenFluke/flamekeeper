@@ -1,6 +1,7 @@
 // src/DeployPage.js
 import React, { Component } from "react";
 import { useParams } from "react-router-dom";
+import EffectBackground from "./EffectBackground";
 
 class DeployPageInner extends Component {
   state = {
@@ -9,6 +10,7 @@ class DeployPageInner extends Component {
     error: "",
     userInput: "",
     showInfoModal: false,
+    aiMessages: ["AI activity will appear here..."],
   };
 
   componentDidMount() {
@@ -30,7 +32,16 @@ class DeployPageInner extends Component {
   };
 
   handleManualSend = () => {
-    alert(`Sending to AI: ${this.state.userInput}`);
+    const { userInput, aiMessages } = this.state;
+    if (!userInput.trim()) return;
+
+    const newMessages = [
+      ...aiMessages,
+      `You: ${userInput}`,
+      `AI: Thinking about "${userInput}"...`,
+    ];
+
+    this.setState({ aiMessages: newMessages, userInput: "" });
   };
 
   toggleInfoModal = () => {
@@ -38,12 +49,35 @@ class DeployPageInner extends Component {
   };
 
   render() {
-    const { project, loading, error, userInput, showInfoModal } = this.state;
+    const { project, loading, error, userInput, showInfoModal, aiMessages } =
+      this.state;
 
     return (
-      <section className="section">
-        <div className="container">
-          {/* Top Buttons */}
+      <section
+        className="section"
+        style={{
+          position: "relative",
+          minHeight: "100vh",
+          overflow: "hidden",
+          paddingBottom: "6rem",
+        }}
+      >
+        {/* 🔥 Background 3D effect */}
+        <EffectBackground effectId={1} />
+
+        {/* 🧊 Content */}
+        <div
+          className="container"
+          style={{
+            position: "relative",
+            zIndex: 1,
+            color: "#fff",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.5rem",
+          }}
+        >
+          {/* Controls */}
           <div className="buttons">
             <button className="button is-info" onClick={this.toggleInfoModal}>
               Show Project Info
@@ -55,22 +89,44 @@ class DeployPageInner extends Component {
             Deploy: {project?.name || "Loading..."}
           </h1>
 
-          {/* Loading / Error */}
-          {loading && <p className="has-text-grey-light">Loading project...</p>}
-          {error && <p className="notification is-danger">{error}</p>}
-
-          {/* Foreground Panel */}
+          {/* Scrollable AI message area */}
           <div
-            className="box has-background-dark has-text-white"
-            style={{ height: "60vh", overflowY: "auto" }}
+            style={{
+              flexGrow: 1,
+              minHeight: "40vh",
+              maxHeight: "60vh",
+              overflowY: "auto",
+              paddingRight: "0.5rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+            }}
           >
-            <p className="is-size-5 has-text-info">
-              AI activity will appear here...
-            </p>
+            {aiMessages.map((msg, idx) => {
+              const isAI = msg.startsWith("AI:");
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    alignSelf: isAI ? "flex-start" : "flex-end",
+                    maxWidth: "75%",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "12px",
+                    backgroundColor: "rgba(0,0,0,0.5)",
+                    backdropFilter: "blur(6px)",
+                    color: "#fff",
+                    fontWeight: 500,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {msg}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Manual Send Input Below */}
-          <div className="field is-grouped mt-4">
+          {/* Input */}
+          <div className="field is-grouped">
             <div className="control is-expanded">
               <input
                 className="input"
@@ -90,9 +146,9 @@ class DeployPageInner extends Component {
             </div>
           </div>
 
-          {/* Modal for Project Info */}
+          {/* Modal */}
           {showInfoModal && project && (
-            <div className={`modal ${showInfoModal ? "is-active" : ""}`}>
+            <div className="modal is-active">
               <div
                 className="modal-background"
                 onClick={this.toggleInfoModal}
