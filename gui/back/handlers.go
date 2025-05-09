@@ -138,6 +138,7 @@ func UpdateGPT(c *fiber.Ctx) error {
 			"model":          updateData.Model,
 			"instructions":   updateData.Instructions,
 			"timeoutSeconds": updateData.TimeoutSeconds,
+			"triggerwords":   updateData.TriggerWords,
 		},
 	}
 
@@ -561,4 +562,25 @@ func queryModel(prompt, model string) (string, error) {
 		return "", err
 	}
 	return result.Response, nil
+}
+
+func GetSingleProject(c *fiber.Ctx) error {
+	projectID := c.Params("projectid")
+
+	var project GPT
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := MI.DB.Collection("gpts").FindOne(ctx, bson.M{"projectid": projectID}).Decode(&project)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"success": false,
+			"message": "Project not found",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"project": project,
+	})
 }

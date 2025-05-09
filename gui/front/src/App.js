@@ -7,6 +7,7 @@ import Project from "./project";
 import NotFound from "./notfound";
 import CreateGPT from "./createGPT";
 import TestPage from "./TestPage";
+import DeployPage from "./DeployPage";
 
 class App extends Component {
   constructor(props) {
@@ -66,12 +67,20 @@ class App extends Component {
                   <div className="box">
                     <h3 className="subtitle">{project.name}</h3>
                     <p>{project.description}</p>
-                    <Link
-                      to={`/projects/${project.projectid}`}
-                      className="button is-primary mt-2"
-                    >
-                      View Project
-                    </Link>
+                    <div className="buttons mt-2">
+                      <Link
+                        to={`/projects/${project.projectid}`}
+                        className="button is-primary"
+                      >
+                        View Project
+                      </Link>
+                      <Link
+                        to={`/deploy/${project.projectid}`}
+                        className="button is-link"
+                      >
+                        Deploy
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -93,6 +102,7 @@ class App extends Component {
             <Route path="/projects/:id" element={<Project />} />
             <Route path="/create-gpt" element={<CreateGPT />} />
             <Route path="/test/:id" element={<TestPage />} />
+            <Route path="/deploy/:projectid" element={<DeployPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

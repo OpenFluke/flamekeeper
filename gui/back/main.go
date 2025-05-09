@@ -46,6 +46,8 @@ func main() {
 	app.Post("/test/:projectid/rag", TestRAGRetrieval)
 	app.Post("/test/:projectid/query", RunFullPipeline)
 
+	app.Get("/api/deploy/:projectid", GetSingleProject)
+
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {

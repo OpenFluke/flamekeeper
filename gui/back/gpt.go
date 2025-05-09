@@ -10,6 +10,8 @@ type GPT struct {
 	Model          string             `json:"model" bson:"model"`               // New field for Ollama model
 	Instructions   string             `json:"instructions" bson:"instructions"` // New field for instructions
 	TimeoutSeconds int                `json:"timeoutSeconds,omitempty" bson:"timeoutSeconds,omitempty"`
+	TriggerWords   string             `json:"triggerwords,omitempty" bson:"triggerwords,omitempty"` // ✅ ADD THIS if missing
+
 }
 
 type EmbeddedChunk struct {
