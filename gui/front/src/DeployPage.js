@@ -1,4 +1,3 @@
-// src/DeployPage.js
 import React, { Component } from "react";
 import { useParams } from "react-router-dom";
 import EffectBackground from "./EffectBackground";
@@ -8,10 +7,15 @@ class DeployPageInner extends Component {
     project: null,
     loading: true,
     error: "",
-    userInput: "",
+    isRecording: false,
+    audioChunks: [],
+    lastTranscript: "",
+    paragraphs: [],
     showInfoModal: false,
-    aiMessages: ["AI activity will appear here..."],
   };
+
+  mediaRecorder = null;
+  stream = null;
 
   componentDidMount() {
     const { projectid } = this.props;
@@ -27,21 +31,87 @@ class DeployPageInner extends Component {
       .catch((err) => this.setState({ error: err.message, loading: false }));
   }
 
-  handleInputChange = (e) => {
-    this.setState({ userInput: e.target.value });
+  componentWillUnmount() {
+    if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+      this.mediaRecorder.stop();
+    }
+    if (this.stream) {
+      this.stream.getTracks().forEach((track) => track.stop());
+    }
+  }
+
+  startRecording = async () => {
+    if (this.state.isRecording) return;
+
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      this.mediaRecorder = new MediaRecorder(this.stream, {
+        mimeType: "audio/webm",
+      });
+
+      const chunks = [];
+      this.mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      this.mediaRecorder.onstop = () => {
+        this.setState({ audioChunks: chunks }, this.sendAudioToASR);
+      };
+
+      this.mediaRecorder.start();
+      this.setState({ isRecording: true, audioChunks: [] });
+    } catch (err) {
+      console.error("❌ Failed to start recording:", err);
+    }
   };
 
-  handleManualSend = () => {
-    const { userInput, aiMessages } = this.state;
-    if (!userInput.trim()) return;
+  stopRecording = () => {
+    if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+      this.mediaRecorder.stop();
+    }
+    this.setState({ isRecording: false });
+  };
 
-    const newMessages = [
-      ...aiMessages,
-      `You: ${userInput}`,
-      `AI: Thinking about "${userInput}"...`,
-    ];
+  sendAudioToASR = async () => {
+    const { audioChunks } = this.state;
+    if (!audioChunks.length) return;
 
-    this.setState({ aiMessages: newMessages, userInput: "" });
+    const blob = new Blob(audioChunks, { type: "audio/webm" });
+    const formData = new FormData();
+    formData.append("file", blob, "input.ogg");
+
+    try {
+      const res = await fetch("http://localhost:8020/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      const transcript = data.transcriptions?.[0];
+
+      if (transcript && transcript.length > 1) {
+        this.setState((prev) => ({
+          paragraphs: [...prev.paragraphs, transcript.trim()],
+          lastTranscript: transcript,
+          audioChunks: [],
+        }));
+      }
+    } catch (err) {
+      console.error("❌ ASR error:", err);
+    }
+  };
+
+  sendPrompt = () => {
+    const fullPrompt = this.state.paragraphs.join("\n\n").trim();
+    if (fullPrompt.length === 0) return;
+
+    console.log("🧠 Full Prompt Sent:\n", fullPrompt);
+
+    this.setState((prev) => ({
+      paragraphs: [],
+      lastTranscript: "",
+    }));
   };
 
   toggleInfoModal = () => {
@@ -49,104 +119,66 @@ class DeployPageInner extends Component {
   };
 
   render() {
-    const { project, loading, error, userInput, showInfoModal, aiMessages } =
-      this.state;
+    const {
+      project,
+      loading,
+      error,
+      isRecording,
+      lastTranscript,
+      paragraphs,
+      showInfoModal,
+    } = this.state;
 
     return (
       <section
         className="section"
-        style={{
-          position: "relative",
-          minHeight: "100vh",
-          overflow: "hidden",
-          paddingBottom: "6rem",
-        }}
+        style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}
       >
-        {/* 🔥 Background 3D effect */}
         <EffectBackground effectId={1} />
 
-        {/* 🧊 Content */}
         <div
           className="container"
-          style={{
-            position: "relative",
-            zIndex: 1,
-            color: "#fff",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.5rem",
-          }}
+          style={{ position: "relative", zIndex: 1, color: "#fff" }}
         >
-          {/* Controls */}
           <div className="buttons">
             <button className="button is-info" onClick={this.toggleInfoModal}>
               Show Project Info
             </button>
           </div>
 
-          {/* Title */}
           <h1 className="title has-text-white">
             Deploy: {project?.name || "Loading..."}
           </h1>
 
-          {/* Scrollable AI message area */}
+          {/* Display transcript paragraphs */}
           <div
-            style={{
-              flexGrow: 1,
-              minHeight: "40vh",
-              maxHeight: "60vh",
-              overflowY: "auto",
-              paddingRight: "0.5rem",
-              display: "flex",
-              flexDirection: "column",
-              gap: "1rem",
-            }}
+            className="box has-background-dark has-text-white"
+            style={{ minHeight: "40vh", whiteSpace: "pre-wrap" }}
           >
-            {aiMessages.map((msg, idx) => {
-              const isAI = msg.startsWith("AI:");
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    alignSelf: isAI ? "flex-start" : "flex-end",
-                    maxWidth: "75%",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "12px",
-                    backgroundColor: "rgba(0,0,0,0.5)",
-                    backdropFilter: "blur(6px)",
-                    color: "#fff",
-                    fontWeight: 500,
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {msg}
-                </div>
-              );
-            })}
+            {paragraphs.length > 0
+              ? paragraphs.map((p, i) => <p key={i}>{p}</p>)
+              : "🧠 No transcript yet..."}
           </div>
 
-          {/* Input */}
-          <div className="field is-grouped">
-            <div className="control is-expanded">
-              <input
-                className="input"
-                type="text"
-                placeholder="Type command..."
-                value={userInput}
-                onChange={this.handleInputChange}
-              />
-            </div>
-            <div className="control">
-              <button
-                className="button is-primary"
-                onClick={this.handleManualSend}
-              >
-                Send
-              </button>
-            </div>
+          <div className="buttons mt-4">
+            <button
+              className={`button ${isRecording ? "is-warning" : "is-primary"}`}
+              onClick={isRecording ? this.stopRecording : this.startRecording}
+            >
+              {isRecording ? "Stop Recording" : "Start Recording"}
+            </button>
+            <button className="button is-success" onClick={this.sendPrompt}>
+              Send Prompt
+            </button>
           </div>
 
-          {/* Modal */}
+          {/* Optional display of last chunk */}
+          {lastTranscript && (
+            <div style={{ color: "#0ff", opacity: 0.8, marginTop: "1rem" }}>
+              <strong>🎤 Last Transcript:</strong> {lastTranscript}
+            </div>
+          )}
+
           {showInfoModal && project && (
             <div className="modal is-active">
               <div
@@ -158,7 +190,6 @@ class DeployPageInner extends Component {
                   <p className="modal-card-title">Project Info</p>
                   <button
                     className="delete"
-                    aria-label="close"
                     onClick={this.toggleInfoModal}
                   ></button>
                 </header>
